@@ -60,8 +60,10 @@ def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
     """Clona o repositorio na pasta destino. Se ja existir, atualiza com git pull."""
     if os.path.exists(os.path.join(pasta_destino, ".git")):
         subprocess.run(["git", "-C", pasta_destino, "pull"], check=True)
+        log.info(f"[bootstrap] Repositorio ja existe em {pasta_destino}, atualizando com git pull.")
     else:
         subprocess.run(["git", "clone", url_repositorio, pasta_destino], check=True)
+        log.info(f"[bootstrap] Repositorio clonado em {pasta_destino} com git clone.")
 
 
 def diretorio_bot(nome_bot: str) -> str:
@@ -113,7 +115,7 @@ def instalar_dependencias(nome_bot: str) -> None:
     log.info(f"[bootstrap] Dependencias de '{nome_bot}' instaladas com sucesso!")
 
 
-def rodar_bot(nome_bot: str, ambiente: str) -> None:
+def rodar_bot(nome_bot: str, ambiente: str, params: str) -> str:
     python_venv = diretorio_python_venv(nome_bot)
     main_path = os.path.join(diretorio_bot(nome_bot), "main.py")
  
@@ -122,30 +124,57 @@ def rodar_bot(nome_bot: str, ambiente: str) -> None:
  
     log.info(f"[bootstrap] Executando '{nome_bot}' (ambiente={ambiente}) via env proprio...")
     resultado = subprocess.run(
-        [python_venv, main_path, ambiente],
+        [python_venv, main_path, ambiente, params],
         cwd=diretorio_bot(nome_bot),
+        capture_output=True,
+        text=True,
     )
- 
+
+    resposta = resultado.stdout.strip()
+    erro_tecnico = resultado.stderr.strip()
+
     if resultado.returncode != 0:
-        raise RuntimeError(f"Bot '{nome_bot}' terminou com erro (codigo {resultado.returncode})")
- 
+        detalhe = f": {erro_tecnico}" if erro_tecnico else ""
+        raise RuntimeError(
+            f"Bot '{nome_bot}' terminou com erro "
+            f"(codigo {resultado.returncode}){detalhe}"
+        )
+
+    if not resposta:
+        raise RuntimeError(
+            f"Bot '{nome_bot}' terminou sem produzir uma resposta no stdout."
+        )
+
+    if erro_tecnico:
+        log.warning(
+            f"[bootstrap] '{nome_bot}' terminou com mensagens no stderr."
+        )
+
     log.info(f"[bootstrap] '{nome_bot}' finalizado com sucesso.")
+    return resposta
  
  
-def executar(params: str) -> None:
+def executar(params: str) -> str:
     """
     Chamada pelo AA: 'Python script: Execute function "executar" with parameter $vParams$'
     params no formato: "AMBIENTE,NOME_BOT,CAMINHO_GIT"  ex: "PROD,R01_Teste,/caminho/para/o/repo"
     """
     ambiente = None
     nome_bot = None
+    resposta = None
     try:
         log.info(f"[bootstrap] Iniciando bootstrap com parametros: {params}")
         dados = json.loads(params)
-        ambiente = dados.get("ambiente")
+        ambiente = dados.get("ambiente", "DEV").strip().upper()
         nome_bot = dados.get("nomebot")
         rodarBot = str(dados.get("executar_bot", "True")).strip().lower() == "true"
         caminho_git = (dados.get("caminho_repositorio") or "").strip()
+        parametros = json.dumps(dados.get("parametros", {}), ensure_ascii=False)
+
+        if ambiente not in ["DEV", "HML", "PROD"]:
+            raise ValueError(
+                f"Ambiente informado ({ambiente}) nao eh valido. Valores permitidos: DEV, HML, PROD"
+            )
 
         if not nome_bot:
             raise ValueError('Campo "nomebot" nao informado na entrada JSON.')
@@ -159,7 +188,13 @@ def executar(params: str) -> None:
         instalar_dependencias(nome_bot)
 
         if rodarBot:
-            rodar_bot(nome_bot, ambiente)
+            resposta_texto = rodar_bot(nome_bot, ambiente, parametros)
+            try:
+                resposta = json.loads(resposta_texto)
+            except json.JSONDecodeError as erro:
+                raise RuntimeError(
+                    f"Bot '{nome_bot}' retornou um JSON invalido no stdout."
+                ) from erro
             log.info(f"[bootstrap] Rodou com sucesso Bot={nome_bot} no Ambiente={ambiente}")
 
         payload = {
@@ -167,6 +202,7 @@ def executar(params: str) -> None:
             "bot": nome_bot,
             "ambiente": ambiente,
             "mensagem": "Bootstrap concluido com sucesso.",
+            "resposta": resposta
         }
 
     except Exception as e:
@@ -187,6 +223,7 @@ if __name__ == "__main__":
     #parametro = "DEV,R03_calculohoras_jira_II,False,https://github.com/marcelo-sduarte/calculohoras_jira_II.git"
     #parametro = "DEV,R01_HYPERA,False,"
     #parametro = "DEV,R04_TESTE_HYPERA,False,"
+    # parametro = "{'ambiente': 'DEV', 'nomebot': 'R00X', 'executar_bot': 'True', 'caminho_repositorio': 'https://github.com/Jaocodigos/R00X.git'}"
     parametro = '{"ambiente": "PROD", "nomebot": "BotFinanceiro", "executar_bot": "False", "caminho_repositorio": ""}'
 
     resposta = executar(parametro)
