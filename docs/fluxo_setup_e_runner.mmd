@@ -66,28 +66,14 @@ flowchart TB
   POK --> E0
   end
 
-  subgraph LEGENDA["LEGENDA"]
-    direction LR
-    L1["Processo Automation Anywhere"]
-    L2["Processo técnico"]
-    L3["Sucesso"]
-    L4["Falha"]
-
-    L1 ~~~ L2
-    L2 ~~~ L3
-    L3 ~~~ L4
-  end
-
-  FLUXO ~~~ LEGENDA
-
   classDef aa fill:#D6E9FF,stroke:#1565C0,color:#0B2E59,stroke-width:3px,font-weight:bold;
   classDef process fill:#F1F5F9,stroke:#64748B,color:#1E293B,stroke-width:1.75px;
   classDef success fill:#DCFCE7,stroke:#16A34A,color:#14532D,stroke-width:2px;
   classDef failure fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D,stroke-width:2px;
 
-  class P0,P1,E0,L1 aa;
-  class P2,D1,D2,P3,P4,D3,POK,E1,D4,E2,E3,E4,E5,D5,L2 process;
-  class OK,L3 success;
-  class PF,EF1,EF2,L4 failure;
+  class P0,P1,E0 aa;
+  class P2,D1,D2,P3,P4,D3,POK,E1,D4,E2,E3,E4,E5,D5 process;
+  class OK success;
+  class PF,EF1,EF2 failure;
 
   style FLUXO fill:#FFFFFF,stroke:#CBD5E1,stroke-width:1px;
