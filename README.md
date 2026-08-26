@@ -409,6 +409,26 @@ O bootstrap deve iniciar a automação de forma síncrona, aguardar o término e
 
 Para preservar o JSON de resposta, mensagens de acompanhamento não devem ser escritas em stdout.
 
+Na implementação atual, a função `executar()` devolve ao Automation Anywhere um envelope técnico. O JSON produzido pela automação é validado e inserido como objeto no campo `resposta`:
+
+~~~json
+{
+  "status": "sucesso",
+  "bot": "R00X",
+  "ambiente": "DEV",
+  "mensagem": "Bootstrap concluido com sucesso.",
+  "resposta": {
+    "status": "sucesso",
+    "automacao": "R00X",
+    "parametros_recebidos": {
+      "identificador_teste": "AA-R00X-001"
+    }
+  }
+}
+~~~
+
+Assim, o Automation Anywhere precisa interpretar apenas o JSON retornado pelo bootstrap; não existe um segundo JSON serializado dentro do campo `resposta`.
+
 ---
 
 ## Logs
