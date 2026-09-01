@@ -243,22 +243,12 @@ Cada automação deve disponibilizar seu próprio sistema de variáveis de ambie
 automacao_pedidos/
 ├── config.py
 ├── .env
-└── .env.example
+
 ~~~
 
 ### .env
 
-Contém os valores específicos da instalação atual.
-
-Exemplos:
-
-~~~env
-AMBIENTE=producao
-CAMINHO_ENTRADA=C:\Automacao\Entrada
-CAMINHO_SAIDA=C:\Automacao\Saida
-TIMEOUT=30
-TENTATIVAS=3
-~~~
+Repositorio criado para instalação de todas bibliotecas que contem no requirements.txt
 
 O arquivo .env:
 
@@ -267,28 +257,9 @@ O arquivo .env:
 - não deve ser incluído nos logs;
 - deve ser carregado pela própria automação.
 
-### .env.example
 
-Documenta todas as variáveis reconhecidas pela automação.
-
-~~~env
-AMBIENTE=
-CAMINHO_ENTRADA=
-CAMINHO_SAIDA=
-TIMEOUT=30
-TENTATIVAS=3
-~~~
-
-O arquivo .env.example:
-
-- deve entrar no Git;
-- não deve conter senhas, tokens ou credenciais reais;
-- deve acompanhar qualquer alteração nas configurações disponíveis;
-- deve informar valores padrão apenas quando forem seguros e válidos.
 
 ### Precedência
-
-Quando uma variável existir tanto no sistema operacional quanto no arquivo .env, o valor do sistema operacional deve prevalecer.
 
 O config.py é responsável por carregar as variáveis, convertê-las para os tipos necessários e validar as configurações obrigatórias.
 

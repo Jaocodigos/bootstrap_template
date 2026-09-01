@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+ xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+ xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+ id="Definitions_PadhyInfra"
+ targetNamespace="http://padhy.local/bpmn">
+
+  <collaboration id="Collaboration_Padhy">
+    <participant id="Participant_Padhy" name="Arquitetura de Infraestrutura e Execução - Padhy" processRef="Process_Padhy"/>
+  </collaboration>
+
+  <process id="Process_Padhy" name="Arquitetura de Infraestrutura e Execução - Padhy" isExecutable="false">
+
+    <laneSet id="LaneSet_Architecture">
+
+      <lane id="Lane_Users" name="USUÁRIOS">
+        <flowNodeRef>StartEvent</flowNodeRef>
+        <flowNodeRef>Task_Access</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_Cloudflare" name="CLOUDFLARE - WAF / CDN">
+        <flowNodeRef>Task_Cloudflare</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_AKS" name="AKS / NAMESPACE">
+        <flowNodeRef>Task_Portal</flowNodeRef>
+        <flowNodeRef>Task_Backend</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_Identity" name="SEGURANÇA E IDENTIDADE - MICROSOFT ENTRA ID">
+        <flowNodeRef>Task_Authenticate</flowNodeRef>
+        <flowNodeRef>Task_ManagedIdentity</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_AA" name="AUTOMATION ANYWHERE">
+        <flowNodeRef>Task_StartBot</flowNodeRef>
+        <flowNodeRef>Task_CheckQueue</flowNodeRef>
+        <flowNodeRef>Gateway_Queue</flowNodeRef>
+        <flowNodeRef>Task_CreateQueue</flowNodeRef>
+        <flowNodeRef>Task_RegisterItem</flowNodeRef>
+        <flowNodeRef>Task_UpdateItem</flowNodeRef>
+        <flowNodeRef>Task_SendEmail</flowNodeRef>
+        <flowNodeRef>EndEvent</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_Padhy" name="PADHY - CONTROLE DE PROCESSAMENTO">
+        <flowNodeRef>Task_ReadPadhy</flowNodeRef>
+        <flowNodeRef>Task_RegisterPadhy</flowNodeRef>
+        <flowNodeRef>Task_UpdatePadhy</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_Python" name="PYTHON - DEPLOYMENT / EXECUTION">
+        <flowNodeRef>Task_Bootstrap</flowNodeRef>
+        <flowNodeRef>Task_ValidateParams</flowNodeRef>
+        <flowNodeRef>Gateway_Params</flowNodeRef>
+        <flowNodeRef>Task_ReturnError</flowNodeRef>
+        <flowNodeRef>Task_IdentifyBot</flowNodeRef>
+        <flowNodeRef>Task_VerifyEnv</flowNodeRef>
+        <flowNodeRef>Gateway_Env</flowNodeRef>
+        <flowNodeRef>Task_CreateEnv</flowNodeRef>
+        <flowNodeRef>Task_ValidateLibs</flowNodeRef>
+        <flowNodeRef>Gateway_Libs</flowNodeRef>
+        <flowNodeRef>Task_InstallReq</flowNodeRef>
+        <flowNodeRef>Task_ExecuteBot</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_AzureStorage" name="AZURE - STORAGE / ARTEFATOS">
+        <flowNodeRef>Task_DownloadBot</flowNodeRef>
+      </lane>
+
+      <lane id="Lane_Data" name="DADOS E ARMAZENAMENTO">
+        <flowNodeRef>Task_SQL</flowNodeRef>
+        <flowNodeRef>Task_Blob</flowNodeRef>
+      </lane>
+    </laneSet>
+
+    <startEvent id="StartEvent" name="Início"/>
+    <task id="Task_Access" name="Acessa o Portal / Solicita execução"/>
+    <task id="Task_Cloudflare" name="WAF / CDN - Protege e encaminha acesso"/>
+    <task id="Task_Portal" name="Portal Web"/>
+    <task id="Task_Backend" name="Backend / API - .NET"/>
+    <task id="Task_Authenticate" name="Autenticação - Microsoft Entra ID"/>
+    <task id="Task_ManagedIdentity" name="Identidade de Serviço - Managed Identity"/>
+
+    <task id="Task_StartBot" name="Inicia o Bot"/>
+    <task id="Task_CheckQueue" name="Valida fila de processamento"/>
+    <exclusiveGateway id="Gateway_Queue" name="Fila / item localizado?"/>
+    <task id="Task_CreateQueue" name="Cria fila / item"/>
+    <task id="Task_RegisterItem" name="Registra item de processamento"/>
+
+    <task id="Task_ReadPadhy" name="Consulta item no Padhy"/>
+    <task id="Task_RegisterPadhy" name="Registra execução no Padhy"/>
+
+    <task id="Task_Bootstrap" name="Executa Bootstrap"/>
+    <task id="Task_ValidateParams" name="Valida parâmetros de entrada"/>
+    <exclusiveGateway id="Gateway_Params" name="Parâmetros válidos?"/>
+    <task id="Task_ReturnError" name="Retorna informação de erro"/>
+    <task id="Task_IdentifyBot" name="Identifica o Bot"/>
+    <task id="Task_VerifyEnv" name="Verifica ambiente virtual"/>
+    <exclusiveGateway id="Gateway_Env" name="Ambiente existe?"/>
+    <task id="Task_CreateEnv" name="Cria ambiente específico"/>
+    <task id="Task_ValidateLibs" name="Valida bibliotecas"/>
+    <exclusiveGateway id="Gateway_Libs" name="Bibliotecas existem?"/>
+    <task id="Task_InstallReq" name="Instala Requirements"/>
+    <task id="Task_ExecuteBot" name="Executa Bot"/>
+
+    <task id="Task_DownloadBot" name="Baixa Bot Atualizado"/>
+    <task id="Task_SQL" name="SQL Server - Fila / Status / Auditoria"/>
+    <task id="Task_Blob" name="Azure Blob Storage - Bots / Pacotes / Artefatos"/>
+
+    <task id="Task_UpdatePadhy" name="Atualiza item / status no Padhy"/>
+    <task id="Task_UpdateItem" name="Atualiza status do processamento"/>
+    <task id="Task_SendEmail" name="Envia e-mail com status"/>
+    <endEvent id="EndEvent" name="Fim"/>
+
+    <dataStoreReference id="DS_SQL" name="SQL Server" dataStoreRef="DS_SQL_DEF"/>
+    <dataStoreReference id="DS_BLOB" name="Azure Blob Storage" dataStoreRef="DS_BLOB_DEF"/>
+    <dataStoreReference id="DS_ENTRA" name="Microsoft Entra ID" dataStoreRef="DS_ENTRA_DEF"/>
+
+    <dataStore id="DS_SQL_DEF" name="SQL Server - Dados transacionais / status / auditoria"/>
+    <dataStore id="DS_BLOB_DEF" name="Azure Blob Storage - Bots / pacotes / documentos"/>
+    <dataStore id="DS_ENTRA_DEF" name="Microsoft Entra ID - SSO / Managed Identity"/>
+
+    <!-- Main execution path -->
+    <sequenceFlow id="F01" sourceRef="StartEvent" targetRef="Task_Access"/>
+    <sequenceFlow id="F02" sourceRef="Task_Access" targetRef="Task_Cloudflare"/>
+    <sequenceFlow id="F03" sourceRef="Task_Cloudflare" targetRef="Task_Portal"/>
+    <sequenceFlow id="F04" sourceRef="Task_Portal" targetRef="Task_Authenticate"/>
+    <sequenceFlow id="F05" sourceRef="Task_Authenticate" targetRef="Task_Backend"/>
+    <sequenceFlow id="F06" sourceRef="Task_Backend" targetRef="Task_StartBot"/>
+    <sequenceFlow id="F07" sourceRef="Task_StartBot" targetRef="Task_CheckQueue"/>
+    <sequenceFlow id="F08" sourceRef="Task_CheckQueue" targetRef="Gateway_Queue"/>
+    <sequenceFlow id="F09" name="Não localizado" sourceRef="Gateway_Queue" targetRef="Task_CreateQueue"/>
+    <sequenceFlow id="F10" sourceRef="Task_CreateQueue" targetRef="Task_RegisterItem"/>
+    <sequenceFlow id="F11" sourceRef="Task_RegisterItem" targetRef="Task_ReadPadhy"/>
+    <sequenceFlow id="F12" name="Localizado" sourceRef="Gateway_Queue" targetRef="Task_ReadPadhy"/>
+    <sequenceFlow id="F13" sourceRef="Task_ReadPadhy" targetRef="Task_RegisterPadhy"/>
+    <sequenceFlow id="F14" sourceRef="Task_RegisterPadhy" targetRef="Task_Bootstrap"/>
+    <sequenceFlow id="F15" sourceRef="Task_Bootstrap" targetRef="Task_ValidateParams"/>
+    <sequenceFlow id="F16" sourceRef="Task_ValidateParams" targetRef="Gateway_Params"/>
+    <sequenceFlow id="F17" name="Erro" sourceRef="Gateway_Params" targetRef="Task_ReturnError"/>
+    <sequenceFlow id="F18" name="Sucesso" sourceRef="Gateway_Params" targetRef="Task_IdentifyBot"/>
+    <sequenceFlow id="F19" sourceRef="Task_ReturnError" targetRef="Task_UpdatePadhy"/>
+    <sequenceFlow id="F20" sourceRef="Task_IdentifyBot" targetRef="Task_DownloadBot"/>
+    <sequenceFlow id="F21" sourceRef="Task_DownloadBot" targetRef="Task_VerifyEnv"/>
+    <sequenceFlow id="F22" sourceRef="Task_VerifyEnv" targetRef="Gateway_Env"/>
+    <sequenceFlow id="F23" name="Não existe" sourceRef="Gateway_Env" targetRef="Task_CreateEnv"/>
+    <sequenceFlow id="F24" sourceRef="Task_CreateEnv" targetRef="Task_ValidateLibs"/>
+    <sequenceFlow id="F25" name="Existe" sourceRef="Gateway_Env" targetRef="Task_ValidateLibs"/>
+    <sequenceFlow id="F26" sourceRef="Task_ValidateLibs" targetRef="Gateway_Libs"/>
+    <sequenceFlow id="F27" name="Não existem" sourceRef="Gateway_Libs" targetRef="Task_InstallReq"/>
+    <sequenceFlow id="F28" sourceRef="Task_InstallReq" targetRef="Task_ExecuteBot"/>
+    <sequenceFlow id="F29" name="Existem" sourceRef="Gateway_Libs" targetRef="Task_ExecuteBot"/>
+    <sequenceFlow id="F30" sourceRef="Task_ExecuteBot" targetRef="Task_UpdatePadhy"/>
+    <sequenceFlow id="F31" sourceRef="Task_UpdatePadhy" targetRef="Task_UpdateItem"/>
+    <sequenceFlow id="F32" sourceRef="Task_UpdateItem" targetRef="Task_SendEmail"/>
+    <sequenceFlow id="F33" sourceRef="Task_SendEmail" targetRef="EndEvent"/>
+
+    <!-- Infrastructure/service relationships represented as BPMN message/data associations -->
+    <association id="A01" sourceRef="Task_Authenticate" targetRef="DS_ENTRA"/>
+    <association id="A02" sourceRef="Task_ManagedIdentity" targetRef="DS_ENTRA"/>
+    <association id="A03" sourceRef="Task_ReadPadhy" targetRef="DS_SQL"/>
+    <association id="A04" sourceRef="Task_RegisterPadhy" targetRef="DS_SQL"/>
+    <association id="A05" sourceRef="Task_UpdatePadhy" targetRef="DS_SQL"/>
+    <association id="A06" sourceRef="Task_DownloadBot" targetRef="DS_BLOB"/>
+    <association id="A07" sourceRef="Task_Blob" targetRef="DS_BLOB"/>
+
+  </process>
+
+  <bpmndi:BPMNDiagram id="Diagram_Padhy">
+    <bpmndi:BPMNPlane id="Plane_Padhy" bpmnElement="Collaboration_Padhy">
+
+      <bpmndi:BPMNShape id="Participant_Padhy_di" bpmnElement="Participant_Padhy" isHorizontal="true">
+        <dc:Bounds x="20" y="20" width="2200" height="1250"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Lane_Users_di" bpmnElement="Lane_Users" isHorizontal="true">
+        <dc:Bounds x="50" y="20" width="2170" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Cloudflare_di" bpmnElement="Lane_Cloudflare" isHorizontal="true">
+        <dc:Bounds x="50" y="140" width="2170" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_AKS_di" bpmnElement="Lane_AKS" isHorizontal="true">
+        <dc:Bounds x="50" y="260" width="2170" height="150"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Identity_di" bpmnElement="Lane_Identity" isHorizontal="true">
+        <dc:Bounds x="50" y="410" width="2170" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_AA_di" bpmnElement="Lane_AA" isHorizontal="true">
+        <dc:Bounds x="50" y="530" width="2170" height="180"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Padhy_di" bpmnElement="Lane_Padhy" isHorizontal="true">
+        <dc:Bounds x="50" y="710" width="2170" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Python_di" bpmnElement="Lane_Python" isHorizontal="true">
+        <dc:Bounds x="50" y="840" width="2170" height="220"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_AzureStorage_di" bpmnElement="Lane_AzureStorage" isHorizontal="true">
+        <dc:Bounds x="50" y="1060" width="2170" height="100"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Data_di" bpmnElement="Lane_Data" isHorizontal="true">
+        <dc:Bounds x="50" y="1160" width="2170" height="110"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Shapes -->
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="100" y="62" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Access_di" bpmnElement="Task_Access"><dc:Bounds x="170" y="45" width="150" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Cloudflare_di" bpmnElement="Task_Cloudflare"><dc:Bounds x="390" y="165" width="180" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Portal_di" bpmnElement="Task_Portal"><dc:Bounds x="650" y="285" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Backend_di" bpmnElement="Task_Backend"><dc:Bounds x="880" y="285" width="170" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Authenticate_di" bpmnElement="Task_Authenticate"><dc:Bounds x="1100" y="430" width="180" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ManagedIdentity_di" bpmnElement="Task_ManagedIdentity"><dc:Bounds x="1350" y="430" width="180" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_StartBot_di" bpmnElement="Task_StartBot"><dc:Bounds x="650" y="585" width="130" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CheckQueue_di" bpmnElement="Task_CheckQueue"><dc:Bounds x="830" y="585" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Queue_di" bpmnElement="Gateway_Queue"><dc:Bounds x="1030" y="595" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CreateQueue_di" bpmnElement="Task_CreateQueue"><dc:Bounds x="1120" y="545" width="130" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RegisterItem_di" bpmnElement="Task_RegisterItem"><dc:Bounds x="1120" y="635" width="130" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UpdateItem_di" bpmnElement="Task_UpdateItem"><dc:Bounds x="1870" y="585" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SendEmail_di" bpmnElement="Task_SendEmail"><dc:Bounds x="2070" y="585" width="120" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="2150" y="662" width="36" height="36"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_ReadPadhy_di" bpmnElement="Task_ReadPadhy"><dc:Bounds x="1320" y="740" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RegisterPadhy_di" bpmnElement="Task_RegisterPadhy"><dc:Bounds x="1510" y="740" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UpdatePadhy_di" bpmnElement="Task_UpdatePadhy"><dc:Bounds x="1870" y="740" width="150" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Bootstrap_di" bpmnElement="Task_Bootstrap"><dc:Bounds x="1660" y="870" width="140" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ValidateParams_di" bpmnElement="Task_ValidateParams"><dc:Bounds x="1840" y="870" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Params_di" bpmnElement="Gateway_Params"><dc:Bounds x="2020" y="880" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReturnError_di" bpmnElement="Task_ReturnError"><dc:Bounds x="2080" y="850" width="110" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_IdentifyBot_di" bpmnElement="Task_IdentifyBot"><dc:Bounds x="2080" y="950" width="110" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_VerifyEnv_di" bpmnElement="Task_VerifyEnv"><dc:Bounds x="1780" y="970" width="140" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Env_di" bpmnElement="Gateway_Env"><dc:Bounds x="1690" y="980" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CreateEnv_di" bpmnElement="Task_CreateEnv"><dc:Bounds x="1500" y="870" width="140" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ValidateLibs_di" bpmnElement="Task_ValidateLibs"><dc:Bounds x="1500" y="970" width="140" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Libs_di" bpmnElement="Gateway_Libs"><dc:Bounds x="1400" y="980" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InstallReq_di" bpmnElement="Task_InstallReq"><dc:Bounds x="1210" y="870" width="140" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ExecuteBot_di" bpmnElement="Task_ExecuteBot"><dc:Bounds x="1210" y="970" width="140" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_DownloadBot_di" bpmnElement="Task_DownloadBot"><dc:Bounds x="950" y="1080" width="150" height="60"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SQL_di" bpmnElement="Task_SQL"><dc:Bounds x="1450" y="1180" width="180" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Blob_di" bpmnElement="Task_Blob"><dc:Bounds x="1750" y="1180" width="200" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="DS_SQL_di" bpmnElement="DS_SQL"><dc:Bounds x="1660" y="1175" width="36" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DS_BLOB_di" bpmnElement="DS_BLOB"><dc:Bounds x="1980" y="1175" width="36" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DS_ENTRA_di" bpmnElement="DS_ENTRA"><dc:Bounds x="1570" y="450" width="36" height="50"/></bpmndi:BPMNShape>
+
+      <!-- Sequence edges -->
+      <bpmndi:BPMNEdge id="F01_di" bpmnElement="F01"><di:waypoint x="136" y="80"/><di:waypoint x="170" y="80"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F02_di" bpmnElement="F02"><di:waypoint x="320" y="80"/><di:waypoint x="390" y="200"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F03_di" bpmnElement="F03"><di:waypoint x="570" y="200"/><di:waypoint x="650" y="320"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F04_di" bpmnElement="F04"><di:waypoint x="800" y="320"/><di:waypoint x="1100" y="465"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F05_di" bpmnElement="F05"><di:waypoint x="1280" y="465"/><di:waypoint x="880" y="320"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F06_di" bpmnElement="F06"><di:waypoint x="1050" y="320"/><di:waypoint x="650" y="620"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F07_di" bpmnElement="F07"><di:waypoint x="780" y="620"/><di:waypoint x="830" y="620"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F08_di" bpmnElement="F08"><di:waypoint x="980" y="620"/><di:waypoint x="1030" y="620"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F09_di" bpmnElement="F09"><di:waypoint x="1055" y="595"/><di:waypoint x="1120" y="580"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F10_di" bpmnElement="F10"><di:waypoint x="1185" y="615"/><di:waypoint x="1185" y="670"/><di:waypoint x="1320" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F11_di" bpmnElement="F11"><di:waypoint x="1470" y="775"/><di:waypoint x="1510" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F12_di" bpmnElement="F12"><di:waypoint x="1080" y="620"/><di:waypoint x="1200" y="775"/><di:waypoint x="1320" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F13_di" bpmnElement="F13"><di:waypoint x="1660" y="775"/><di:waypoint x="1870" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F14_di" bpmnElement="F14"><di:waypoint x="1660" y="810"/><di:waypoint x="1730" y="870"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F15_di" bpmnElement="F15"><di:waypoint x="1800" y="905"/><di:waypoint x="1840" y="905"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F16_di" bpmnElement="F16"><di:waypoint x="1990" y="905"/><di:waypoint x="2020" y="905"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F17_di" bpmnElement="F17"><di:waypoint x="2045" y="880"/><di:waypoint x="2080" y="885"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F18_di" bpmnElement="F18"><di:waypoint x="2045" y="930"/><di:waypoint x="2045" y="985"/><di:waypoint x="2080" y="985"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F19_di" bpmnElement="F19"><di:waypoint x="2135" y="850"/><di:waypoint x="2135" y="775"/><di:waypoint x="2020" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F20_di" bpmnElement="F20"><di:waypoint x="2135" y="1020"/><di:waypoint x="1025" y="1080"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F21_di" bpmnElement="F21"><di:waypoint x="1100" y="1110"/><di:waypoint x="1780" y="1005"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F22_di" bpmnElement="F22"><di:waypoint x="1780" y="1005"/><di:waypoint x="1740" y="1005"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F23_di" bpmnElement="F23"><di:waypoint x="1690" y="980"/><di:waypoint x="1640" y="905"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F24_di" bpmnElement="F24"><di:waypoint x="1570" y="940"/><di:waypoint x="1570" y="970"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F25_di" bpmnElement="F25"><di:waypoint x="1740" y="1005"/><di:waypoint x="1640" y="1005"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F26_di" bpmnElement="F26"><di:waypoint x="1500" y="1005"/><di:waypoint x="1450" y="1005"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F27_di" bpmnElement="F27"><di:waypoint x="1425" y="980"/><di:waypoint x="1350" y="905"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F28_di" bpmnElement="F28"><di:waypoint x="1280" y="940"/><di:waypoint x="1280" y="970"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F29_di" bpmnElement="F29"><di:waypoint x="1450" y="1005"/><di:waypoint x="1350" y="1005"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F30_di" bpmnElement="F30"><di:waypoint x="1350" y="1005"/><di:waypoint x="1350" y="775"/><di:waypoint x="1870" y="775"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F31_di" bpmnElement="F31"><di:waypoint x="2020" y="775"/><di:waypoint x="2020" y="620"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F32_di" bpmnElement="F32"><di:waypoint x="2020" y="620"/><di:waypoint x="2070" y="620"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F33_di" bpmnElement="F33"><di:waypoint x="2190" y="620"/><di:waypoint x="2168" y="680"/></bpmndi:BPMNEdge>
+
+      <!-- Associations -->
+      <bpmndi:BPMNEdge id="A01_di" bpmnElement="A01"><di:waypoint x="1190" y="500"/><di:waypoint x="1588" y="450"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A02_di" bpmnElement="A02"><di:waypoint x="1440" y="500"/><di:waypoint x="1588" y="475"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A03_di" bpmnElement="A03"><di:waypoint x="1395" y="810"/><di:waypoint x="1678" y="1175"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A04_di" bpmnElement="A04"><di:waypoint x="1585" y="810"/><di:waypoint x="1678" y="1175"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A05_di" bpmnElement="A05"><di:waypoint x="1945" y="810"/><di:waypoint x="1678" y="1175"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A06_di" bpmnElement="A06"><di:waypoint x="1025" y="1140"/><di:waypoint x="1998" y="1175"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="A07_di" bpmnElement="A07"><di:waypoint x="1850" y="1180"/><di:waypoint x="1998" y="1175"/></bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>

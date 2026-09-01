@@ -20,7 +20,9 @@ import subprocess
 import venv
 import logging
 from datetime import datetime
-
+from config import *
+from dataclasses import dataclass
+from typing import Sequence
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BOTS_DIR = os.path.join(BASE_DIR, "bots")
