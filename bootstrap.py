@@ -57,7 +57,7 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 # --------------- Tratativa de logs ---------------  #
-
+'''
 def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
     """Clona o repositorio na pasta destino. Se ja existir, atualiza com git pull."""
     if os.path.exists(os.path.join(pasta_destino, ".git")):
@@ -66,7 +66,21 @@ def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
     else:
         subprocess.run(["git", "clone", url_repositorio, pasta_destino], check=True)
         log.info(f"[bootstrap] Repositorio clonado em {pasta_destino} com git clone.")
+'''
+def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
+    if os.path.exists(os.path.join(pasta_destino, ".git")):
+        cmd = ["git", "-C", pasta_destino, "pull"]
+        acao = "atualizar"
+    else:
+        cmd = ["git", "clone", url_repositorio, pasta_destino]
+        acao = "clonar"
 
+    resultado = subprocess.run(cmd, capture_output=True, text=True)
+    if resultado.returncode != 0:
+        raise RuntimeError(
+            f"Falha ao {acao} repositorio '{url_repositorio}': {resultado.stderr.strip()}"
+        )
+    log.info(f"[bootstrap] Repositorio {'atualizado' if acao=='atualizar' else 'clonado'} em {pasta_destino}.")
 
 def diretorio_bot(nome_bot: str) -> str:
     pasta = os.path.join(BOTS_DIR, nome_bot)
@@ -221,11 +235,7 @@ def executar(params: str) -> str:
     
  
 if __name__ == "__main__":
-    # Teste local: python bootstrap.py Ambiente, Nome do robo Ex: "DEV,R01_HYPERA"
-    #parametro = "DEV,R03_calculohoras_jira_II,False,https://github.com/marcelo-sduarte/calculohoras_jira_II.git"
-    #parametro = "DEV,R01_HYPERA,False,"
-    #parametro = "DEV,R04_TESTE_HYPERA,False,"
-    # parametro = "{'ambiente': 'DEV', 'nomebot': 'R00X', 'executar_bot': 'True', 'caminho_repositorio': 'https://github.com/Jaocodigos/R00X.git'}"
+    # parametro = '{"ambiente": "DEV", "nomebot": "R00X", "executar_bot": "True", "caminho_repositorio": "https://github.com/Jaocodigos/R00X.git"}'
     parametro = '{"ambiente": "PROD", "nomebot": "BotFinanceiro", "executar_bot": "False", "caminho_repositorio": ""}'
 
     resposta = executar(parametro)
