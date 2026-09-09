@@ -20,11 +20,11 @@ import subprocess
 import venv
 import logging
 from datetime import datetime
-from config import *
-from dataclasses import dataclass
-from typing import Sequence
+import shutil
+from urllib.parse import urlparse, parse_qs, unquote
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.join(r"C:\RPA\repo")
 BOTS_DIR = os.path.join(BASE_DIR, "bots")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 
@@ -57,31 +57,96 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 # --------------- Tratativa de logs ---------------  #
-'''
-def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
-    """Clona o repositorio na pasta destino. Se ja existir, atualiza com git pull."""
-    if os.path.exists(os.path.join(pasta_destino, ".git")):
-        subprocess.run(["git", "-C", pasta_destino, "pull"], check=True)
-        log.info(f"[bootstrap] Repositorio ja existe em {pasta_destino}, atualizando com git pull.")
-    else:
-        subprocess.run(["git", "clone", url_repositorio, pasta_destino], check=True)
-        log.info(f"[bootstrap] Repositorio clonado em {pasta_destino} com git clone.")
-'''
-def clonar_bot(url_repositorio: str, pasta_destino: str) -> None:
-    if os.path.exists(os.path.join(pasta_destino, ".git")):
-        cmd = ["git", "-C", pasta_destino, "pull"]
-        acao = "atualizar"
-    else:
-        cmd = ["git", "clone", url_repositorio, pasta_destino]
-        acao = "clonar"
+def parse_caminho_repositorio(caminho_repositorio: str):
+    """
+    Aceita dois formatos de URL do Azure DevOps:
+    1) .../_git/Repo?path=/automacoes/eco_bot   (formato com query string)
+    2) .../_git/Repo/automacoes/eco_bot          (formato com path direto)
+    Retorna (url_clone, subpasta).
+    """
+    parsed = urlparse(caminho_repositorio)
 
-    resultado = subprocess.run(cmd, capture_output=True, text=True)
-    if resultado.returncode != 0:
-        raise RuntimeError(
-            f"Falha ao {acao} repositorio '{url_repositorio}': {resultado.stderr.strip()}"
+    query = parse_qs(parsed.query)
+    path_param = query.get("path", [None])[0]
+
+    if path_param:
+        # Formato 1: subpasta vem da query string
+        url_clone = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        subpasta = unquote(path_param).lstrip("/")
+    else:
+        # Formato 2: subpasta vem embutida no path, depois de "_git/<repo>"
+        partes = parsed.path.split("/_git/")
+        if len(partes) == 2:
+            base = partes[0]  # ex: /hypera/Repositorio_Automacoes_Python
+            resto = partes[1].split("/", 1)  # separa nome do repo do restante
+            nome_repo = resto[0]
+            subpasta = resto[1] if len(resto) > 1 else None
+            url_clone = f"{parsed.scheme}://{parsed.netloc}{base}/_git/{nome_repo}"
+        else:
+            # Nao encontrou "_git/", assume que a URL inteira eh o clone, sem subpasta
+            url_clone = caminho_repositorio
+            subpasta = None
+
+    return url_clone, subpasta
+
+def clonar_bot(caminho_repositorio: str, pasta_destino: str):
+    url_clone, subpasta = parse_caminho_repositorio(caminho_repositorio)
+    log.info(f"[bootstrap] URL clone resolvida: {url_clone}")
+    log.info(f"[bootstrap] Subpasta resolvida: {subpasta}")
+
+    if os.path.exists(pasta_destino):
+        log.info(f"[bootstrap] Pasta destino ja existe, removendo: {pasta_destino}")
+        shutil.rmtree(pasta_destino)
+
+    os.makedirs(pasta_destino, exist_ok=True)
+
+    if subpasta:
+        log.info(f"[bootstrap] Clonando com sparse checkout | Repo={url_clone} | Subpasta={subpasta}")
+
+        subprocess.run(
+            ["git", "clone", "--filter=blob:none", "--no-checkout", url_clone, pasta_destino],
+            check=True
         )
-    log.info(f"[bootstrap] Repositorio {'atualizado' if acao=='atualizar' else 'clonado'} em {pasta_destino}.")
+        subprocess.run(["git", "sparse-checkout", "init", "--cone"], cwd=pasta_destino, check=True)
+        subprocess.run(["git", "sparse-checkout", "set", subpasta], cwd=pasta_destino, check=True)
+        subprocess.run(["git", "checkout"], cwd=pasta_destino, check=True)
 
+        pasta_subpasta = os.path.join(pasta_destino, *subpasta.split("/"))
+
+        if not os.path.isdir(pasta_subpasta):
+            shutil.rmtree(pasta_destino, ignore_errors=True)
+            raise FileNotFoundError(
+                f"A pasta '{subpasta}' nao foi encontrada no repositorio {url_clone}. "
+                f"Verifique se o caminho esta correto."
+            )
+
+        # Nomes dos itens que realmente pertencem a subpasta pedida
+        itens_validos = set(os.listdir(pasta_subpasta))
+
+        log.info(f"[bootstrap] Pasta '{subpasta}' encontrada, promovendo conteudo para {pasta_destino}")
+        for item in itens_validos:
+            origem = os.path.join(pasta_subpasta, item)
+            destino = os.path.join(pasta_destino, item)
+            if os.path.exists(destino):
+                shutil.rmtree(destino) if os.path.isdir(destino) else os.remove(destino)
+            shutil.move(origem, destino)
+
+        # Remove a arvore de pastas intermediarias (ex: automacoes/eco_bot)
+        raiz_intermediaria = os.path.join(pasta_destino, subpasta.split("/")[0])
+        shutil.rmtree(raiz_intermediaria, ignore_errors=True)
+
+        # Remove qualquer arquivo/pasta extra que veio da raiz do repo (cone mode),
+        # mantendo somente .git e o que veio da subpasta
+        log.info("[bootstrap] Limpando arquivos extras trazidos da raiz do repositorio")
+        for item in os.listdir(pasta_destino):
+            if item == ".git" or item in itens_validos:
+                continue
+            caminho_item = os.path.join(pasta_destino, item)
+            shutil.rmtree(caminho_item) if os.path.isdir(caminho_item) else os.remove(caminho_item)
+    else:
+        log.info(f"[bootstrap] Clonando repositorio completo | Repo={url_clone}")
+        subprocess.run(["git", "clone", url_clone, pasta_destino], check=True)
+        
 def diretorio_bot(nome_bot: str) -> str:
     pasta = os.path.join(BOTS_DIR, nome_bot)
     if not os.path.isdir(pasta):
@@ -122,7 +187,9 @@ def instalar_dependencias(nome_bot: str) -> None:
     if not os.path.exists(requirements_path):
         log.info(f"[bootstrap] requirements.txt nao encontrado para '{nome_bot}', pulando instalacao.")
         return
- 
+
+    garantir_venv(nome_bot=nome_bot)
+
     log.info(f"[bootstrap] Instalando dependencias de '{nome_bot}' no env...")
     subprocess.check_call([
         python_venv, "-m", "pip", "install", "-r", requirements_path,
@@ -199,8 +266,8 @@ def executar(params: str) -> str:
 
         if caminho_git:
             clonar_bot(caminho_git, diretorio_bot(nome_bot))
-
-        garantir_venv(nome_bot)
+        
+      
         instalar_dependencias(nome_bot)
 
         if rodarBot:
@@ -235,8 +302,9 @@ def executar(params: str) -> str:
     
  
 if __name__ == "__main__":
-    # parametro = '{"ambiente": "DEV", "nomebot": "R00X", "executar_bot": "True", "caminho_repositorio": "https://github.com/Jaocodigos/R00X.git"}'
-    parametro = '{"ambiente": "PROD", "nomebot": "BotFinanceiro", "executar_bot": "False", "caminho_repositorio": ""}'
-
+    # Teste local: python bootstrap.py Ambiente, Nome do robo Ex: "DEV,R01_HYPERA"
+    #parametro = '{"ambiente": "DEV", "nomebot": "R01", "executar_bot": "False", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/DEV"}'
+    #parametro = '{"ambiente": "DEV", "nomebot": "EcoBot", "executar_bot": "False", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/Repositorio_Automacoes_Python/automacoes/eco_bot"}'
+    parametro = '{"ambiente": "DEV", "nomebot": "AutomacoesHypera", "executar_bot": "False", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/Repositorio_Automacoes_Python/automacoes/"}'
     resposta = executar(parametro)
     print(f"Bootstrap finalizado com status: {resposta}")
