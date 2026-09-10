@@ -23,8 +23,7 @@ from datetime import datetime
 import shutil
 from urllib.parse import urlparse, parse_qs, unquote
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.join(r"C:\RPA\repo")
+BASE_DIR = r"C:\RPA\repo"
 BOTS_DIR = os.path.join(BASE_DIR, "bots")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 
@@ -89,13 +88,32 @@ def parse_caminho_repositorio(caminho_repositorio: str):
 
     return url_clone, subpasta
 
+def repo_existe(pasta_destino: str) -> bool:
+    """Verifica se ja existe um clone Git valido na pasta do bot."""
+    return os.path.isdir(os.path.join(pasta_destino, ".git"))
+
+
+def atualizar_bot(pasta_destino: str) -> None:
+    """Faz pull no bot que ja foi clonado anteriormente (respeita o sparse-checkout ja configurado)."""
+    log.info(f"[bootstrap] Repositorio ja existe em {pasta_destino}, atualizando com git pull.")
+    resultado = subprocess.run(
+        ["git", "pull"], cwd=pasta_destino, capture_output=True, text=True
+    )
+    if resultado.returncode != 0:
+        raise RuntimeError(
+            f"Falha ao atualizar (git pull) em '{pasta_destino}': {resultado.stderr.strip()}"
+        )
+    log.info(f"[bootstrap] Repositorio atualizado em {pasta_destino}.")
+
+
 def clonar_bot(caminho_repositorio: str, pasta_destino: str):
+    """Clona o bot pela primeira vez. So deve ser chamada quando a pasta ainda nao tem um clone valido."""
     url_clone, subpasta = parse_caminho_repositorio(caminho_repositorio)
     log.info(f"[bootstrap] URL clone resolvida: {url_clone}")
     log.info(f"[bootstrap] Subpasta resolvida: {subpasta}")
 
     if os.path.exists(pasta_destino):
-        log.info(f"[bootstrap] Pasta destino ja existe, removendo: {pasta_destino}")
+        log.info(f"[bootstrap] Pasta destino ja existe (sem clone valido), removendo: {pasta_destino}")
         shutil.rmtree(pasta_destino)
 
     os.makedirs(pasta_destino, exist_ok=True)
@@ -146,7 +164,16 @@ def clonar_bot(caminho_repositorio: str, pasta_destino: str):
     else:
         log.info(f"[bootstrap] Clonando repositorio completo | Repo={url_clone}")
         subprocess.run(["git", "clone", url_clone, pasta_destino], check=True)
-        
+
+
+def garantir_bot(caminho_repositorio: str, pasta_destino: str) -> None:
+    """Ponto de entrada unico: decide entre atualizar (pull) ou clonar, dependendo se ja existe um clone valido."""
+    if repo_existe(pasta_destino):
+        atualizar_bot(pasta_destino)
+    else:
+        clonar_bot(caminho_repositorio, pasta_destino)
+
+
 def diretorio_bot(nome_bot: str) -> str:
     pasta = os.path.join(BOTS_DIR, nome_bot)
     if not os.path.isdir(pasta):
@@ -181,9 +208,11 @@ def garantir_venv(nome_bot: str) -> None:
  
  
 def instalar_dependencias(nome_bot: str) -> None:
+   
+
     python_venv = diretorio_python_venv(nome_bot)
     requirements_path = os.path.join(diretorio_bot(nome_bot), "requirements.txt")
- 
+
     if not os.path.exists(requirements_path):
         log.info(f"[bootstrap] requirements.txt nao encontrado para '{nome_bot}', pulando instalacao.")
         return
@@ -265,9 +294,8 @@ def executar(params: str) -> str:
         log.info(f"[bootstrap] Ambiente={ambiente} | Bot={nome_bot} | RodarBot={rodarBot} | Caminho Git={caminho_git}")
 
         if caminho_git:
-            clonar_bot(caminho_git, diretorio_bot(nome_bot))
-        
-      
+            garantir_bot(caminho_git, diretorio_bot(nome_bot))
+
         instalar_dependencias(nome_bot)
 
         if rodarBot:
