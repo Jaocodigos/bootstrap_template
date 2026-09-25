@@ -93,9 +93,28 @@ def repo_existe(pasta_destino: str) -> bool:
     return os.path.isdir(os.path.join(pasta_destino, ".git"))
 
 
-def atualizar_bot(pasta_destino: str) -> None:
-    """Faz pull no bot que ja foi clonado anteriormente (respeita o sparse-checkout ja configurado)."""
+def atualizar_bot(pasta_destino: str, branch: str = None) -> None:
+    """Faz pull no bot que ja foi clonado anteriormente (respeita o sparse-checkout ja configurado).
+    Se 'branch' for informada, garante que o repo esteja nela antes do pull."""
     log.info(f"[bootstrap] Repositorio ja existe em {pasta_destino}, atualizando com git pull.")
+
+    if branch:
+        log.info(f"[bootstrap] Garantindo que o repositorio esteja na branch '{branch}' antes do pull.")
+        resultado_fetch = subprocess.run(
+            ["git", "fetch", "origin", branch], cwd=pasta_destino, capture_output=True, text=True
+        )
+        if resultado_fetch.returncode != 0:
+            raise RuntimeError(
+                f"Falha ao buscar a branch '{branch}' em '{pasta_destino}': {resultado_fetch.stderr.strip()}"
+            )
+        resultado_checkout = subprocess.run(
+            ["git", "checkout", branch], cwd=pasta_destino, capture_output=True, text=True
+        )
+        if resultado_checkout.returncode != 0:
+            raise RuntimeError(
+                f"Falha ao mudar para a branch '{branch}' em '{pasta_destino}': {resultado_checkout.stderr.strip()}"
+            )
+
     resultado = subprocess.run(
         ["git", "pull"], cwd=pasta_destino, capture_output=True, text=True
     )
@@ -106,11 +125,13 @@ def atualizar_bot(pasta_destino: str) -> None:
     log.info(f"[bootstrap] Repositorio atualizado em {pasta_destino}.")
 
 
-def clonar_bot(caminho_repositorio: str, pasta_destino: str):
-    """Clona o bot pela primeira vez. So deve ser chamada quando a pasta ainda nao tem um clone valido."""
+def clonar_bot(caminho_repositorio: str, pasta_destino: str, branch: str = None):
+    """Clona o bot pela primeira vez. So deve ser chamada quando a pasta ainda nao tem um clone valido.
+    Se 'branch' nao for informada, clona a branch padrao do repositorio (ex: master)."""
     url_clone, subpasta = parse_caminho_repositorio(caminho_repositorio)
     log.info(f"[bootstrap] URL clone resolvida: {url_clone}")
     log.info(f"[bootstrap] Subpasta resolvida: {subpasta}")
+    log.info(f"[bootstrap] Branch resolvida: {branch or '(padrao do repositorio)'}")
 
     if os.path.exists(pasta_destino):
         log.info(f"[bootstrap] Pasta destino ja existe (sem clone valido), removendo: {pasta_destino}")
@@ -119,12 +140,14 @@ def clonar_bot(caminho_repositorio: str, pasta_destino: str):
     os.makedirs(pasta_destino, exist_ok=True)
 
     if subpasta:
-        log.info(f"[bootstrap] Clonando com sparse checkout | Repo={url_clone} | Subpasta={subpasta}")
+        log.info(f"[bootstrap] Clonando com sparse checkout | Repo={url_clone} | Subpasta={subpasta} | Branch={branch or '(padrao)'}")
 
-        subprocess.run(
-            ["git", "clone", "--filter=blob:none", "--no-checkout", url_clone, pasta_destino],
-            check=True
-        )
+        comando_clone = ["git", "clone", "--filter=blob:none", "--no-checkout"]
+        if branch:
+            comando_clone += ["--branch", branch]
+        comando_clone += [url_clone, pasta_destino]
+
+        subprocess.run(comando_clone, check=True)
         subprocess.run(["git", "sparse-checkout", "init", "--cone"], cwd=pasta_destino, check=True)
         subprocess.run(["git", "sparse-checkout", "set", subpasta], cwd=pasta_destino, check=True)
         subprocess.run(["git", "checkout"], cwd=pasta_destino, check=True)
@@ -162,16 +185,21 @@ def clonar_bot(caminho_repositorio: str, pasta_destino: str):
             caminho_item = os.path.join(pasta_destino, item)
             shutil.rmtree(caminho_item) if os.path.isdir(caminho_item) else os.remove(caminho_item)
     else:
-        log.info(f"[bootstrap] Clonando repositorio completo | Repo={url_clone}")
-        subprocess.run(["git", "clone", url_clone, pasta_destino], check=True)
+        comando_clone = ["git", "clone"]
+        if branch:
+            comando_clone += ["--branch", branch]
+        comando_clone += [url_clone, pasta_destino]
+
+        log.info(f"[bootstrap] Clonando repositorio completo | Repo={url_clone} | Branch={branch or '(padrao)'}")
+        subprocess.run(comando_clone, check=True)
 
 
-def garantir_bot(caminho_repositorio: str, pasta_destino: str) -> None:
+def garantir_bot(caminho_repositorio: str, pasta_destino: str, branch: str = None) -> None:
     """Ponto de entrada unico: decide entre atualizar (pull) ou clonar, dependendo se ja existe um clone valido."""
     if repo_existe(pasta_destino):
-        atualizar_bot(pasta_destino)
+        atualizar_bot(pasta_destino, branch)
     else:
-        clonar_bot(caminho_repositorio, pasta_destino)
+        clonar_bot(caminho_repositorio, pasta_destino, branch)
 
 
 def diretorio_bot(nome_bot: str) -> str:
@@ -179,36 +207,36 @@ def diretorio_bot(nome_bot: str) -> str:
     if not os.path.isdir(pasta):
         os.makedirs(pasta, exist_ok=True)
     return pasta
- 
- 
+
+
 def diretorio_venv(nome_bot: str) -> str:
     return os.path.join(diretorio_bot(nome_bot), ".env")
- 
- 
+
+
 def diretorio_python_venv(nome_bot: str) -> str:
     venv_dir = diretorio_venv(nome_bot)
     if os.name == "nt":
         return os.path.join(venv_dir, "Scripts", "python.exe")
     return os.path.join(venv_dir, "bin", "python")
- 
- 
+
+
 def garantir_venv(nome_bot: str) -> None:
     """Equivalente a 'python -m venv', mas via API (venv.EnvBuilder) - cria so se nao existir."""
     venv_dir = diretorio_venv(nome_bot)
     python_venv = diretorio_python_venv(nome_bot)
- 
+
     if os.path.exists(python_venv):
         log.info(f"[bootstrap] env de '{nome_bot}' ja existe, reutilizando.")
-        
+
         return
- 
+
     log.info(f"[bootstrap] Criando env para '{nome_bot}' em {venv_dir}...")
     venv.EnvBuilder(with_pip=True).create(venv_dir)
     log.info(f"[bootstrap] env criado.")
- 
- 
+
+
 def instalar_dependencias(nome_bot: str) -> None:
-   
+
 
     python_venv = diretorio_python_venv(nome_bot)
     requirements_path = os.path.join(diretorio_bot(nome_bot), "requirements.txt")
@@ -230,10 +258,10 @@ def instalar_dependencias(nome_bot: str) -> None:
 def rodar_bot(nome_bot: str, ambiente: str, params: str) -> str:
     python_venv = diretorio_python_venv(nome_bot)
     main_path = os.path.join(diretorio_bot(nome_bot), "main.py")
- 
+
     if not os.path.exists(main_path):
         raise FileNotFoundError(f"main.py nao encontrado em bots/{nome_bot}/")
- 
+
     log.info(f"[bootstrap] Executando '{nome_bot}' (ambiente={ambiente}) via env proprio...")
     resultado = subprocess.run(
         [python_venv, main_path, ambiente, params],
@@ -264,12 +292,13 @@ def rodar_bot(nome_bot: str, ambiente: str, params: str) -> str:
 
     log.info(f"[bootstrap] '{nome_bot}' finalizado com sucesso.")
     return resposta
- 
- 
+
+
 def executar(params: str) -> str:
     """
     Chamada pelo AA: 'Python script: Execute function "executar" with parameter $vParams$'
-    params no formato: "AMBIENTE,NOME_BOT,CAMINHO_GIT"  ex: "PROD,R01_Teste,/caminho/para/o/repo"
+    params no formato JSON, contendo entre outros campos "branch" (opcional).
+    Se "branch" nao for informada (ou vier vazia), clona/atualiza a branch padrao do repositorio (ex: master).
     """
     ambiente = None
     nome_bot = None
@@ -281,6 +310,7 @@ def executar(params: str) -> str:
         nome_bot = dados.get("nomebot")
         rodarBot = str(dados.get("executar_bot", "True")).strip().lower() == "true"
         caminho_git = (dados.get("caminho_repositorio") or "").strip()
+        branch = (dados.get("branch") or "").strip() or None
         parametros = json.dumps(dados.get("parametros", {}), ensure_ascii=False)
 
         if ambiente not in ["DEV", "HML", "PROD"]:
@@ -291,10 +321,13 @@ def executar(params: str) -> str:
         if not nome_bot:
             raise ValueError('Campo "nomebot" nao informado na entrada JSON.')
 
-        log.info(f"[bootstrap] Ambiente={ambiente} | Bot={nome_bot} | RodarBot={rodarBot} | Caminho Git={caminho_git}")
+        log.info(
+            f"[bootstrap] Ambiente={ambiente} | Bot={nome_bot} | RodarBot={rodarBot} "
+            f"| Caminho Git={caminho_git} | Branch={branch or '(padrao)'}"
+        )
 
         if caminho_git:
-            garantir_bot(caminho_git, diretorio_bot(nome_bot))
+            garantir_bot(caminho_git, diretorio_bot(nome_bot), branch)
 
         instalar_dependencias(nome_bot)
 
@@ -328,12 +361,14 @@ def executar(params: str) -> str:
     log.info(f"[bootstrap] Payload de retorno: {payload}")
     return json.dumps(payload, ensure_ascii=False)
 
-    
- 
+
+
 if __name__ == "__main__":
     # Teste local: python bootstrap.py Ambiente, Nome do robo Ex: "DEV,R01_HYPERA"
     #parametro = '{"ambiente": "DEV", "nomebot": "R01", "executar_bot": "False", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/DEV"}'
     parametro = '{"ambiente": "DEV", "nomebot": "EcoBot", "executar_bot": "True", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/Repositorio_Automacoes_Python/automacoes/eco_bot"}'
     # parametro = '{"ambiente": "DEV", "nomebot": "AutomacoesHypera", "executar_bot": "False", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/Repositorio_Automacoes_Python/automacoes/"}'
+    # Exemplo com branch explicita:
+    # parametro = '{"ambiente": "DEV", "nomebot": "EcoBot", "executar_bot": "True", "branch": "feature/minha-branch", "caminho_repositorio": "https://dev.azure.com/hypera/Repositorio_Automacoes_Python/_git/Repositorio_Automacoes_Python/automacoes/eco_bot"}'
     resposta = executar(parametro)
     print(f"Bootstrap finalizado com status: {resposta}")
